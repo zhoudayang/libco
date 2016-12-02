@@ -1,1 +1,5 @@
-README.md
+*.o
+cmake-build-debug
+build
+*.a
+*.so

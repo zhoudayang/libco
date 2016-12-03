@@ -13,15 +13,13 @@ set(LIB_FILE
         co_epoll.cpp
         co_routine.cpp
         co_hook_sys_call.cpp
-        coctx.cpp
-        )
+        coctx.cpp)
 add_library(colib ${LIB_FILE})
 target_link_libraries(colib ${LINKS} coctx_swap)
 add_executable(example_echosvr example_echosvr.cpp)
 target_link_libraries(example_echosvr colib)
 add_executable(example_closure example_closure.cpp)
 target_link_libraries(example_closure colib)
-
 add_executable(example_cond example_cond.cpp)
 target_link_libraries(example_cond colib)
 add_executable(example_poll example_poll.cpp)

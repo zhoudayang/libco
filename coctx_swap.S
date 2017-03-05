@@ -16,6 +16,7 @@
 * limitations under the License.
 */
 
+//  coctx_swap(&(curr->ctx), &(pending_co->ctx));
 .globl coctx_swap
 #if !defined( __APPLE__ )
 .type  coctx_swap, @function
@@ -52,11 +53,11 @@ coctx_swap:
 
 	xorl %eax, %eax
 	ret
-
+//  coctx_swap(&(curr->ctx), &(pending_co->ctx));
 #elif defined(__x86_64__)
 	leaq 8(%rsp),%rax
-	leaq 112(%rdi),%rsp
-	pushq %rax
+	leaq 112(%rdi),%rsp // set %rsp = %rdi + 112
+	pushq %rax          // store register values
 	pushq %rbx
 	pushq %rcx
 	pushq %rdx
@@ -73,8 +74,8 @@ coctx_swap:
 	pushq %r14
 	pushq %r15
 	
-	movq %rsi, %rsp
-	popq %r15
+	movq %rsi, %rsp // %rsp -> %rsi, reset %rsi
+	popq %r15       // 从下到上是寄存器的命名顺序
 	popq %r14
 	popq %r13
 	popq %r12
@@ -90,6 +91,6 @@ coctx_swap:
 	popq %rsp
 	pushq %rax
 	
-	xorl %eax, %eax
-	ret
+	xorl %eax, %eax // %eax = 0
+	ret             // return (void function)
 #endif

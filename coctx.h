@@ -30,9 +30,12 @@ struct coctx_t
 #if defined(__i386__)
 	void *regs[ 8 ];
 #else
+    // 14个寄存器
 	void *regs[ 14 ];
 #endif
+   // 堆栈大小　
 	size_t ss_size;
+    // spi
 	char *ss_sp;
 	
 };

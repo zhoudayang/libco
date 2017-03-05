@@ -31,8 +31,21 @@ int	co_epoll_wait( int epfd,struct co_epoll_res *events,int maxevents,int timeou
 }
 int	co_epoll_ctl( int epfd,int op,int fd,struct epoll_event * ev )
 {
+	/*
+		In   the  initial  epoll_create()  implementation,  the  size  argument
+       informed the kernel of the number of file descriptors that  the  caller
+       expected  to  add to the epoll instance.  The kernel used this informa‐
+       tion as a hint for the amount of space to initially allocate in  inter‐
+       nal data structures describing events.  (If necessary, the kernel would
+       allocate more space if the caller's usage exceeded the  hint  given  in
+       size.)   Nowadays,  this hint is no longer required (the kernel dynami‐
+       cally sizes the required data structures without needing the hint), but
+       size  must still be greater than zero, in order to ensure backward com‐
+       patibility when new epoll applications are run on older kernels.
+	 */
 	return epoll_ctl( epfd,op,fd,ev );
 }
+// create epoll fd
 int	co_epoll_create( int size )
 {
 	return epoll_create( size );

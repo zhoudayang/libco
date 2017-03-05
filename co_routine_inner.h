@@ -31,8 +31,8 @@ struct stStackMem_t
 {
 	stCoRoutine_t* ocupy_co;
 	int stack_size;
-	char* stack_bp; //stack_buffer + stack_size
-	char* stack_buffer;
+	char* stack_bp; //stack_buffer + stack_size　// 堆栈末尾指针　
+	char* stack_buffer; // 携程堆栈　
 
 };
 

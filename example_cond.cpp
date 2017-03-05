@@ -26,11 +26,15 @@ struct stTask_t
 {
 	int id;
 };
+
+// 协程运行环境
 struct stEnv_t
 {
 	stCoCond_t* cond;
 	queue<stTask_t*> task_queue;
 };
+
+// 因为是协程，所以不用加锁
 void* Producer(void* args)
 {
 	co_enable_hook_sys();
@@ -47,6 +51,7 @@ void* Producer(void* args)
 	}
 	return NULL;
 }
+
 void* Consumer(void* args)
 {
 	co_enable_hook_sys();
@@ -71,7 +76,9 @@ int main()
 	env->cond = co_cond_alloc();
 
 	stCoRoutine_t* consumer_routine;
+	// 创建协程
 	co_create(&consumer_routine, NULL, Consumer, env);
+	// 切换协程
 	co_resume(consumer_routine);
 
 	stCoRoutine_t* producer_routine;

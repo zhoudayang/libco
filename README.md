@@ -1,50 +1,24 @@
-Libco
-===========
-Libco is a c/c++ coroutine library that is widely used in WeChat services. It has been running on tens of thousands of machines since 2013.
 
-Author: sunnyxu(sunnyxu@tencent.com), leiffyli(leiffyli@tencent.com), dengoswei@gmail.com(dengoswei@tencent.com), sarlmolchen(sarlmolchen@tencent.com)
+# libco
 
-By linking with libco, you can easily transform synchronous back-end service into coroutine service. The coroutine service will provide out-standing concurrency compare to multi-thread approach. With the system hook, You can easily coding in synchronous way but asynchronous executed.
+是一个基于非对称协程的网络库，每个协程只能返回调用它的那个协程，由main协程执行epoll，根据返回的事件，重新激活对应的协程，继续执行过程。
 
-You can also use co_create/co_resume/co_yield interfaces to create asynchronous back-end service. These interface will give you more control of coroutines.
+## 时间轮盘机制:
+一个简单的时间轮盘机制，每次调用epoll时，首先处理epoll返回的事件，然后转动时间轮盘，将未超时的事件放置到轮盘上正确的位置上，超时的时间加入active list, 一起处理。
 
-By libco copy-stack mode, you can easily build a back-end service support tens of millions of tcp connection.
-***
-### 简介
-libco是微信后台大规模使用的c/c++协程库，2013年至今稳定运行在微信后台的数万台机器上。  
+## poll实现:
+若超时时间为０，则直接调用poll系统调用。将poll关注的事件转给epoll进行处理。设置事件触发的时候，更新返回的有效事件的数目和类型。根据给定的timeout参数，加入timeout时间轮盘。有时间触发，从时间轮盘中删除此超时事件。然后yield出让控制权，交由epoll处理。触发事件切换回当前context, 执行相关清理，返回触发的事件的数目。
 
-libco通过仅有的几个函数接口 co_create/co_resume/co_yield 再配合 co_poll，可以支持同步或者异步的写法，如线程库一样轻松。同时库里面提供了socket族函数的hook，使得后台逻辑服务几乎不用修改逻辑代码就可以完成异步化改造。
+## context 切换:
+[context切换解析](https://zhuanlan.zhihu.com/p/27409164)
 
-作者: sunnyxu(sunnyxu@tencent.com), leiffyli(leiffyli@tencent.com), dengoswei@gmail.com(dengoswei@tencent.com), sarlmolchen(sarlmolchen@tencent.com)
+## cond实现：
+	timewait: 将当前协程加入等待链表，设置超时，出让控制权。
+	signal: 从等待链表中弹出头节点，取消其超时事件，并且加入就绪队列，以便后续被调用。
 
-PS: **近期将开源PaxosStore，敬请期待。**
+## setenv实现：
+	将之前指定的环境变量作为协程context的一部分，进行记录。未提前指定的环境变量调用系统调用来进行get和set。
 
-### libco的特性
-- 无需侵入业务逻辑，把多进程、多线程服务改造成协程服务，并发能力得到百倍提升;
-- 支持CGI框架，轻松构建web服务(New);
-- 支持gethostbyname、mysqlclient、ssl等常用第三库(New);
-- 可选的共享栈模式，单机轻松接入千万连接(New);
-- 完善简洁的协程编程接口
- * 类pthread接口设计，通过co_create、co_resume等简单清晰接口即可完成协程的创建与恢复；
- * __thread的协程私有变量、协程间通信的协程信号量co_signal (New);
- * 语言级别的lambda实现，结合协程原地编写并执行后台异步任务 (New);
- * 基于epoll/kqueue实现的小而轻的网络框架，基于时间轮盘实现的高性能定时器;
+## gethostbyname实现：
 
-### Build
-
-```bash
-$ cd /path/to/libco
-$ make
-```
-
-or use cmake
-
-```bash
-$ cd /path/to/libco
-$ mkdir build
-$ cd build
-$ cmake ..
-$ make
-```
-
-
+glibc实现gethostbyname利用了pool方法等待事件，是自定义的__pool方法，所以需要hook __pool方法。同时，因为gethostbyname使用了线程私有变量，不同协程之间切换可能会出现问题，所以在libco中用到了协程私有变量。

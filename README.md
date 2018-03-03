@@ -25,4 +25,4 @@ glibc实现gethostbyname利用了pool方法等待事件，是自定义的__pool�
 
 ## 参考
 
-[libco原理与实践](https://github.com/zhoudayang/libco/blob/master/C%2B%2B%E5%BC%80%E6%BA%90%E5%8D%8F%E7%A8%8B%E5%BA%93libco-%E5%8E%9F%E7%90%86%E4%B8%8E%E5%BA%94%E7%94%A8.pdf)
+[libco原理](https://github.com/zhoudayang/libco/blob/master/C%2B%2B%E5%BC%80%E6%BA%90%E5%8D%8F%E7%A8%8B%E5%BA%93libco-%E5%8E%9F%E7%90%86%E4%B8%8E%E5%BA%94%E7%94%A8.pdf)

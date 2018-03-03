@@ -6,10 +6,10 @@
 ## 时间轮盘机制
 一个简单的时间轮盘机制，每次调用epoll时，首先处理epoll返回的事件，然后转动时间轮盘，将未超时的事件放置到轮盘上正确的位置上，超时的时间加入active list, 一起处理。
 
-## poll实现:
+## poll实现
 若超时时间为０，则直接调用poll系统调用。将poll关注的事件转给epoll进行处理。设置事件触发的时候，更新返回的有效事件的数目和类型。根据给定的timeout参数，加入timeout时间轮盘。有时间触发，从时间轮盘中删除此超时事件。然后yield出让控制权，交由epoll处理。触发事件切换回当前context, 执行相关清理，返回触发的事件的数目。
 
-## context 切换:
+## context 切换
 [context切换解析](https://zhuanlan.zhihu.com/p/27409164)
 
 ## cond实现

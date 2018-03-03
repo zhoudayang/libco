@@ -19,7 +19,6 @@
 #include "coctx.h"
 #include <string.h>
 
-
 #define ESP 0
 #define EIP 1
 #define EAX 2
@@ -41,7 +40,6 @@
 #define R8 12
 #define R9 13
 
-
 //----- --------
 // 32 bit
 // | regs[0]: ret |
@@ -54,8 +52,8 @@
 // | regs[7]: eax |  = esp
 enum
 {
-	kEIP = 0,
-	kESP = 7,
+  kEIP = 0,
+  kESP = 7,
 };
 
 //-------------
@@ -76,62 +74,64 @@ enum
 //hig | regs[13]: rsp |
 enum
 {
-	kRDI = 7,
-	kRSI = 8,
-	kRETAddr = 9,
-	kRSP = 13,
+  kRDI = 7,
+  kRSI = 8,
+  kRETAddr = 9,
+  kRSP = 13,
 };
 
 //64 bit
 extern "C"
 {
-	extern void coctx_swap( coctx_t *,coctx_t* ) asm("coctx_swap");
+extern void coctx_swap(coctx_t *, coctx_t *) asm("coctx_swap");
 };
 #if defined(__i386__)
 int coctx_init( coctx_t *ctx )
 {
-	memset( ctx,0,sizeof(*ctx));
-	return 0;
+    memset( ctx,0,sizeof(*ctx));
+    return 0;
 }
 int coctx_make( coctx_t *ctx,coctx_pfn_t pfn,const void *s,const void *s1 )
 {
-	//make room for coctx_param
-	char *sp = ctx->ss_sp + ctx->ss_size - sizeof(coctx_param_t);
-	sp = (char*)((unsigned long)sp & -16L);
+    //make room for coctx_param
+    char *sp = ctx->ss_sp + ctx->ss_size - sizeof(coctx_param_t);
+    sp = (char*)((unsigned long)sp & -16L);
 
-	
-	coctx_param_t* param = (coctx_param_t*)sp ;
-	param->s1 = s;
-	param->s2 = s1;
 
-	memset(ctx->regs, 0, sizeof(ctx->regs));
+    coctx_param_t* param = (coctx_param_t*)sp ;
+    param->s1 = s;
+    param->s2 = s1;
 
-	ctx->regs[ kESP ] = (char*)(sp) - sizeof(void*);
-	ctx->regs[ kEIP ] = (char*)pfn;
+    memset(ctx->regs, 0, sizeof(ctx->regs));
 
-	return 0;
+    ctx->regs[ kESP ] = (char*)(sp) - sizeof(void*);
+    ctx->regs[ kEIP ] = (char*)pfn;
+
+    return 0;
 }
 #elif defined(__x86_64__)
-int coctx_make( coctx_t *ctx,coctx_pfn_t pfn,const void *s,const void *s1 )
+/// 在这里设置了跳转的函数和相应的参数
+int coctx_make(coctx_t *ctx, coctx_pfn_t pfn, const void *s, const void *s1)
 {
-	char *sp = ctx->ss_sp + ctx->ss_size;
-	sp = (char*) ((unsigned long)sp & -16LL  );
+  char *sp = ctx->ss_sp + ctx->ss_size;
+  sp = (char *) ((unsigned long) sp & -16LL); // 16位对齐
 
-	memset(ctx->regs, 0, sizeof(ctx->regs));
+  memset(ctx->regs, 0, sizeof(ctx->regs));
 
-	ctx->regs[ kRSP ] = sp - 8;
-
-	ctx->regs[ kRETAddr] = (char*)pfn;
-
-	ctx->regs[ kRDI ] = (char*)s;
-	ctx->regs[ kRSI ] = (char*)s1;
-	return 0;
+  ctx->regs[kRSP] = sp - 8;
+  /// 设置函数作为返回地址
+  ctx->regs[kRETAddr] = (char *) pfn;
+  // 设置参数
+  ctx->regs[kRDI] = (char *) s;
+  ctx->regs[kRSI] = (char *) s1;
+  return 0;
 }
 
-int coctx_init( coctx_t *ctx )
+/// 初始化coctx pass
+int coctx_init(coctx_t *ctx)
 {
-	memset( ctx,0,sizeof(*ctx));
-	return 0;
+  memset(ctx, 0, sizeof(*ctx));
+  return 0;
 }
 
 #endif

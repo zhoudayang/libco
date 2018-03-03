@@ -22,8 +22,6 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>
-#include <sys/time.h>
 #include <stack>
 
 #include <sys/socket.h>
@@ -32,17 +30,26 @@
 #include <fcntl.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+#include <errno.h>
+#include <sys/wait.h>
+
+#ifdef __FreeBSD__
+#include <cstring>
+#include <sys/types.h>
+#include <sys/wait.h>
+#endif
 
 using namespace std;
-struct task_t {
+struct task_t
+{
   stCoRoutine_t *co;
   int fd;
 };
 
-// store read_write routines that are ready now
 static stack<task_t *> g_readwrite;
 static int g_listen_fd = -1;
-static int SetNonBlock(int iSock) {
+static int SetNonBlock(int iSock)
+{
   int iFlags;
 
   iFlags = fcntl(iSock, F_GETFL, 0);
@@ -52,36 +59,45 @@ static int SetNonBlock(int iSock) {
   return ret;
 }
 
-static void *readwrite_routine(void *arg) {
+static void *readwrite_routine(void *arg)
+{
 
   co_enable_hook_sys();
 
   task_t *co = (task_t *) arg;
   char buf[1024 * 16];
-  for (;;) {
-    if (-1 == co->fd) {
-      // if readwrite routine is ready now, push it to g_readwrite
+  for (;;)
+  {
+    if (-1 == co->fd)
+    {
       g_readwrite.push(co);
-      // 切换协程
+      /// fd == -1, 出让控制权
       co_yield_ct();
       continue;
     }
-
     int fd = co->fd;
+    ///下次进入循环，co->fd == -1, 出让控制权，并且push 进入g_readwrite
     co->fd = -1;
 
-    for (;;) {
+    for (;;)
+    {
       struct pollfd pf = {0};
       pf.fd = fd;
       pf.events = (POLLIN | POLLERR | POLLHUP);
-      // pool to wait read event
       co_poll(co_get_epoll_ct(), &pf, 1, 1000);
-      // read and write it back to client
+
       int ret = read(fd, buf, sizeof(buf));
-      if (ret > 0) {
+      if (ret > 0)
+      {
         ret = write(fd, buf, ret);
       }
-      if (ret <= 0) {
+      if (ret <= 0)
+      {
+        // accept_routine->SetNonBlock(fd) cause EAGAIN, we should continue
+        if (errno == EAGAIN)
+        {
+          continue;
+        }
         close(fd);
         break;
       }
@@ -91,14 +107,16 @@ static void *readwrite_routine(void *arg) {
   return 0;
 }
 int co_accept(int fd, struct sockaddr *addr, socklen_t *len);
-static void *accept_routine(void *) {
+static void *accept_routine(void *)
+{
   co_enable_hook_sys();
   printf("accept_routine\n");
   fflush(stdout);
-  for (;;) {
+  for (;;)
+  {
     //printf("pid %ld g_readwrite.size %ld\n",getpid(),g_readwrite.size());
-    // if now no readwrite routine is ready, poll to wait
-    if (g_readwrite.empty()) {
+    if (g_readwrite.empty())
+    {
       printf("empty\n"); //sleep
       struct pollfd pf = {0};
       pf.fd = -1;
@@ -112,29 +130,31 @@ static void *accept_routine(void *) {
     socklen_t len = sizeof(addr);
 
     int fd = co_accept(g_listen_fd, (struct sockaddr *) &addr, &len);
-    if (fd < 0) {
+    if (fd < 0)
+    {
       struct pollfd pf = {0};
       pf.fd = g_listen_fd;
       pf.events = (POLLIN | POLLERR | POLLHUP);
       co_poll(co_get_epoll_ct(), &pf, 1, 1000);
       continue;
     }
-    // no routine available
-    if (g_readwrite.empty()) {
+    if (g_readwrite.empty())
+    {
       close(fd);
       continue;
     }
     SetNonBlock(fd);
+    /// 取出一个协程，用来执行read write操作　
     task_t *co = g_readwrite.top();
     co->fd = fd;
     g_readwrite.pop();
-    // 切换协程　
     co_resume(co->co);
   }
   return 0;
 }
 
-static void SetAddr(const char *pszIP, const unsigned short shPort, struct sockaddr_in &addr) {
+static void SetAddr(const char *pszIP, const unsigned short shPort, struct sockaddr_in &addr)
+{
   bzero(&addr, sizeof(addr));
   addr.sin_family = AF_INET;
   addr.sin_port = htons(shPort);
@@ -142,9 +162,12 @@ static void SetAddr(const char *pszIP, const unsigned short shPort, struct socka
   if (!pszIP || '\0' == *pszIP
       || 0 == strcmp(pszIP, "0") || 0 == strcmp(pszIP, "0.0.0.0")
       || 0 == strcmp(pszIP, "*")
-      ) {
+      )
+  {
     nIP = htonl(INADDR_ANY);
-  } else {
+  }
+  else
+  {
     nIP = inet_addr(pszIP);
   }
   addr.sin_addr.s_addr = nIP;
@@ -153,18 +176,23 @@ static void SetAddr(const char *pszIP, const unsigned short shPort, struct socka
 
 static int CreateTcpSocket(const unsigned short shPort /* = 0 */,
                            const char *pszIP /* = "*" */,
-                           bool bReuse /* = false */) {
+                           bool bReuse /* = false */)
+{
   int fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-  if (fd >= 0) {
-    if (shPort != 0) {
-      if (bReuse) {
+  if (fd >= 0)
+  {
+    if (shPort != 0)
+    {
+      if (bReuse)
+      {
         int nReuseAddr = 1;
         setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &nReuseAddr, sizeof(nReuseAddr));
       }
       struct sockaddr_in addr;
       SetAddr(pszIP, shPort, addr);
       int ret = bind(fd, (struct sockaddr *) &addr, sizeof(addr));
-      if (ret != 0) {
+      if (ret != 0)
+      {
         close(fd);
         return -1;
       }
@@ -173,43 +201,64 @@ static int CreateTcpSocket(const unsigned short shPort /* = 0 */,
   return fd;
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[])
+{
+  if (argc < 5)
+  {
+    printf("Usage:\n"
+               "example_echosvr [IP] [PORT] [TASK_COUNT] [PROCESS_COUNT]\n"
+               "example_echosvr [IP] [PORT] [TASK_COUNT] [PROCESS_COUNT] -d   # daemonize mode\n");
+    return -1;
+  }
   const char *ip = argv[1];
   int port = atoi(argv[2]);
   int cnt = atoi(argv[3]);
   int proccnt = atoi(argv[4]);
+  bool deamonize = argc >= 6 && strcmp(argv[5], "-d") == 0;
 
   g_listen_fd = CreateTcpSocket(port, ip, true);
   listen(g_listen_fd, 1024);
+  if (g_listen_fd == -1)
+  {
+    printf("Port %d is in use\n", port);
+    return -1;
+  }
   printf("listen %d %s:%d\n", g_listen_fd, ip, port);
 
   SetNonBlock(g_listen_fd);
-  // so parent process exit, but child process remain
-  for (int k = 0; k < proccnt; k++) {
+
+  for (int k = 0; k < proccnt; k++)
+  {
 
     pid_t pid = fork();
-    if (pid > 0) {
-      // parent process, continue
+    if (pid > 0)
+    {
       continue;
-    } else if (pid < 0) {
+    }
+    else if (pid < 0)
+    {
       break;
     }
-    for (int i = 0; i < cnt; i++) {
+    for (int i = 0; i < cnt; i++)
+    {
       task_t *task = (task_t *) calloc(1, sizeof(task_t));
-      // set task fd to -1
       task->fd = -1;
-      // create readwrite routine
+
       co_create(&(task->co), NULL, readwrite_routine, task);
       co_resume(task->co);
+
     }
-    // create accept routine
     stCoRoutine_t *accept_co = NULL;
     co_create(&accept_co, NULL, accept_routine, 0);
     co_resume(accept_co);
 
     co_eventloop(co_get_epoll_ct(), 0, 0);
-    // never come here
+
     exit(0);
+  }
+  if (!deamonize)
+  {
+    wait(NULL);
   }
   return 0;
 }

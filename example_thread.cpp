@@ -16,28 +16,38 @@
 * limitations under the License.
 */
 
-#ifndef __CO_CTX_H__
-#define __CO_CTX_H__
-#include <stdlib.h>
-typedef void *(*coctx_pfn_t)(void *s, void *s2);
-struct coctx_param_t
-{
-  const void *s1;
-  const void *s2;
-};
-///　寄存器　堆栈大小　栈顶指针
-struct coctx_t
-{
-#if defined(__i386__)
-  void *regs[ 8 ];
-#else
-  void *regs[14];
-#endif
-  size_t ss_size;
-  char *ss_sp;
 
-};
 
-int coctx_init(coctx_t *ctx);
-int coctx_make(coctx_t *ctx, coctx_pfn_t pfn, const void *s, const void *s1);
-#endif
+#include "co_routine.h"
+#include "co_routine_inner.h"
+
+#include <stdio.h>
+#include <unistd.h>
+
+int loop(void *)
+{
+  return 0;
+}
+static void *routine_func(void *)
+{
+  stCoEpoll_t *ev = co_get_epoll_ct(); //ct = current thread
+  co_eventloop(ev, loop, 0);
+  return 0;
+}
+int main(int argc, char *argv[])
+{
+  int cnt = 1;
+
+  pthread_t tid[cnt];
+  for (int i = 0; i < cnt; i++)
+  {
+    pthread_create(tid + i, NULL, routine_func, 0);
+  }
+  for (;;)
+  {
+    sleep(1);
+  }
+
+  return 0;
+}
+

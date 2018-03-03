@@ -15,10 +15,10 @@
 * See the License for the specific language governing permissions and 
 * limitations under the License.
 */
+/// refer to: https://zhuanlan.zhihu.com/p/27409164
 
-//  coctx_swap(&(curr->ctx), &(pending_co->ctx));
 .globl coctx_swap
-#if !defined( __APPLE__ )
+#if !defined( __APPLE__ ) && !defined( __FreeBSD__ )
 .type  coctx_swap, @function
 #endif
 coctx_swap:
@@ -53,11 +53,16 @@ coctx_swap:
 
 	xorl %eax, %eax
 	ret
-//  coctx_swap(&(curr->ctx), &(pending_co->ctx));
+
+/*
+pending_co  高
+curr_co
+返回地址     低
+*/
 #elif defined(__x86_64__)
 	leaq 8(%rsp),%rax
-	leaq 112(%rdi),%rsp // set %rsp = %rdi + 112
-	pushq %rax          // store register values
+	leaq 112(%rdi),%rsp // 指向curr协程的寄存器
+	pushq %rax
 	pushq %rbx
 	pushq %rcx
 	pushq %rdx
@@ -74,8 +79,8 @@ coctx_swap:
 	pushq %r14
 	pushq %r15
 	
-	movq %rsi, %rsp // %rsp -> %rsi, reset %rsi
-	popq %r15       // 从下到上是寄存器的命名顺序
+	movq %rsi, %rsp # 指向pending context
+	popq %r15
 	popq %r14
 	popq %r13
 	popq %r12
@@ -84,13 +89,13 @@ coctx_swap:
 	popq %rbp
 	popq %rdi
 	popq %rsi
-	popq %rax //ret func addr
+	popq %rax // ret func addr
 	popq %rdx
 	popq %rcx
 	popq %rbx
 	popq %rsp
-	pushq %rax
+	pushq %rax // 修改返回地址
 	
-	xorl %eax, %eax // %eax = 0
-	ret             // return (void function)
+	xorl %eax, %eax // 地址对齐
+	ret // 函数返回
 #endif

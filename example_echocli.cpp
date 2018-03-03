@@ -23,25 +23,23 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>
-#include <time.h>
 #include <stack>
 
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include <sys/un.h>
-#include <fcntl.h>
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <signal.h>
 
 using namespace std;
-struct stEndPoint {
+struct stEndPoint
+{
   char *ip;
   unsigned short int port;
 };
 
-static void SetAddr(const char *pszIP, const unsigned short shPort, struct sockaddr_in &addr) {
+static void SetAddr(const char *pszIP, const unsigned short shPort, struct sockaddr_in &addr)
+{
   bzero(&addr, sizeof(addr));
   addr.sin_family = AF_INET;
   addr.sin_port = htons(shPort);
@@ -49,9 +47,12 @@ static void SetAddr(const char *pszIP, const unsigned short shPort, struct socka
   if (!pszIP || '\0' == *pszIP
       || 0 == strcmp(pszIP, "0") || 0 == strcmp(pszIP, "0.0.0.0")
       || 0 == strcmp(pszIP, "*")
-      ) {
+      )
+  {
     nIP = htonl(INADDR_ANY);
-  } else {
+  }
+  else
+  {
     nIP = inet_addr(pszIP);
   }
   addr.sin_addr.s_addr = nIP;
@@ -62,30 +63,39 @@ static int iSuccCnt = 0;
 static int iFailCnt = 0;
 static int iTime = 0;
 
-void AddSuccCnt() {
+void AddSuccCnt()
+{
   int now = time(NULL);
-  if (now > iTime) {
+  if (now > iTime)
+  {
     printf("time %d Succ Cnt %d Fail Cnt %d\n", iTime, iSuccCnt, iFailCnt);
     iTime = now;
     iSuccCnt = 0;
     iFailCnt = 0;
-  } else {
+  }
+  else
+  {
     iSuccCnt++;
   }
 }
-void AddFailCnt() {
+void AddFailCnt()
+{
   int now = time(NULL);
-  if (now > iTime) {
+  if (now > iTime)
+  {
     printf("time %d Succ Cnt %d Fail Cnt %d\n", iTime, iSuccCnt, iFailCnt);
     iTime = now;
     iSuccCnt = 0;
     iFailCnt = 0;
-  } else {
+  }
+  else
+  {
     iFailCnt++;
   }
 }
 
-static void *readwrite_routine(void *arg) {
+static void *readwrite_routine(void *arg)
+{
 
   co_enable_hook_sys();
 
@@ -94,14 +104,17 @@ static void *readwrite_routine(void *arg) {
   char buf[1024 * 16];
   int fd = -1;
   int ret = 0;
-  for (;;) {
-    if (fd < 0) {
+  for (;;)
+  {
+    if (fd < 0)
+    {
       fd = socket(PF_INET, SOCK_STREAM, 0);
       struct sockaddr_in addr;
       SetAddr(endpoint->ip, endpoint->port, addr);
       ret = connect(fd, (struct sockaddr *) &addr, sizeof(addr));
-      // for connect error process
-      if (errno == EALREADY || errno == EINPROGRESS) {
+
+      if (errno == EALREADY || errno == EINPROGRESS)
+      {
         struct pollfd pf = {0};
         pf.fd = fd;
         pf.events = (POLLOUT | POLLERR | POLLHUP);
@@ -111,14 +124,16 @@ static void *readwrite_routine(void *arg) {
         uint32_t socklen = sizeof(error);
         errno = 0;
         ret = getsockopt(fd, SOL_SOCKET, SO_ERROR, (void *) &error, &socklen);
-        if (ret == -1) {
+        if (ret == -1)
+        {
           //printf("getsockopt ERROR ret %d %d:%s\n", ret, errno, strerror(errno));
           close(fd);
           fd = -1;
           AddFailCnt();
           continue;
         }
-        if (error) {
+        if (error)
+        {
           errno = error;
           //printf("connect ERROR ret %d %d:%s\n", error, errno, strerror(errno));
           close(fd);
@@ -131,19 +146,25 @@ static void *readwrite_routine(void *arg) {
     }
 
     ret = write(fd, str, 8);
-    if (ret > 0) {
+    if (ret > 0)
+    {
       ret = read(fd, buf, sizeof(buf));
-      if (ret <= 0) {
+      if (ret <= 0)
+      {
         //printf("co %p read ret %d errno %d (%s)\n",
         //		co_self(), ret,errno,strerror(errno));
         close(fd);
         fd = -1;
         AddFailCnt();
-      } else {
+      }
+      else
+      {
         //printf("echo %s fd %d\n", buf,fd);
         AddSuccCnt();
       }
-    } else {
+    }
+    else
+    {
       //printf("co %p write ret %d errno %d (%s)\n",
       //		co_self(), ret,errno,strerror(errno));
       close(fd);
@@ -154,27 +175,33 @@ static void *readwrite_routine(void *arg) {
   return 0;
 }
 
-// 容易理解，一个协程发起一个连接
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[])
+{
   stEndPoint endpoint;
   endpoint.ip = argv[1];
   endpoint.port = atoi(argv[2]);
   int cnt = atoi(argv[3]);
   int proccnt = atoi(argv[4]);
-  // ignore SIGPIPE signal
+
+  /// ignore signal pipe
   struct sigaction sa;
   sa.sa_handler = SIG_IGN;
   sigaction(SIGPIPE, &sa, NULL);
 
-  for (int k = 0; k < proccnt; k++) {
+  for (int k = 0; k < proccnt; k++)
+  {
 
     pid_t pid = fork();
-    if (pid > 0) {
+    if (pid > 0)
+    {
       continue;
-    } else if (pid < 0) {
+    }
+    else if (pid < 0)
+    {
       break;
     }
-    for (int i = 0; i < cnt; i++) {
+    for (int i = 0; i < cnt; i++)
+    {
       stCoRoutine_t *co = 0;
       co_create(&co, NULL, readwrite_routine, &endpoint);
       co_resume(co);

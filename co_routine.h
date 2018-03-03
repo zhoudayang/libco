@@ -28,18 +28,20 @@
 struct stCoRoutine_t;
 struct stShareStack_t;
 
-struct stCoRoutineAttr_t {
+struct stCoRoutineAttr_t
+{
   int stack_size;
   stShareStack_t *share_stack;
-  stCoRoutineAttr_t() {
-    stack_size = 128 * 1024;
+  stCoRoutineAttr_t()
+  {
+    stack_size = 128 * 1024; // default 128K
     share_stack = NULL;
   }
 }__attribute__ ((packed));
 
 struct stCoEpoll_t;
-// event loop inner call helper function
 typedef int (*pfn_co_eventloop_t)(void *);
+// co routine callback function
 typedef void *(*pfn_co_routine_t)(void *);
 
 //2.co_routine

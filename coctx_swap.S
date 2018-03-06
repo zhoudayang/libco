@@ -48,7 +48,7 @@ coctx_swap:
 	popl %edi
 	popl %esi
 	popl %ebp
-	popl %esp
+	popl %esp  //esp指向参数a，再调用push等于把返回地址存到参数下面去了
 	pushl %eax //set ret func addr
 
 	xorl %eax, %eax

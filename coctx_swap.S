@@ -15,8 +15,8 @@
 * See the License for the specific language governing permissions and 
 * limitations under the License.
 */
-/// refer to: https://zhuanlan.zhihu.com/p/27409164
 
+/// cur pending
 .globl coctx_swap
 #if !defined( __APPLE__ ) && !defined( __FreeBSD__ )
 .type  coctx_swap, @function
@@ -36,7 +36,7 @@ coctx_swap:
 	pushl %edx
 	pushl %ecx
 	pushl %ebx
-	pushl -4(%eax)
+	pushl -4(%eax) // 返回地址
 
 	
 	movl 4(%eax), %esp //parm b -> &regs[0]
@@ -48,20 +48,34 @@ coctx_swap:
 	popl %edi
 	popl %esi
 	popl %ebp
-	popl %esp  //esp指向参数a，再调用push等于把返回地址存到参数下面去了
+	popl %esp // esp指向参数a，再调用push等于把返回地址存到参数下面去了
 	pushl %eax //set ret func addr
 
 	xorl %eax, %eax
 	ret
 
+
+
 /*
-pending_co  高
-curr_co
-返回地址     低
+struct coctx_t
+{
+#if defined(__i386__)
+	void *regs[ 8 ];
+#else
+	void *regs[ 14 ]; // 14 * 8 = 112
+#endif
+	size_t ss_size;
+	char *ss_sp;
+
+};
 */
+// pending
+// cur
+// return address
+
 #elif defined(__x86_64__)
-	leaq 8(%rsp),%rax
-	leaq 112(%rdi),%rsp // 指向curr协程的寄存器
+	leaq 8(%rsp),%rax // cur
+	leaq 112(%rdi),%rsp //指向 regs末尾
 	pushq %rax
 	pushq %rbx
 	pushq %rcx
@@ -79,7 +93,7 @@ curr_co
 	pushq %r14
 	pushq %r15
 	
-	movq %rsi, %rsp # 指向pending context
+	movq %rsi, %rsp // pending
 	popq %r15
 	popq %r14
 	popq %r13
@@ -89,13 +103,13 @@ curr_co
 	popq %rbp
 	popq %rdi
 	popq %rsi
-	popq %rax // ret func addr
+	popq %rax //ret func addr
 	popq %rdx
 	popq %rcx
 	popq %rbx
-	popq %rsp
-	pushq %rax // 修改返回地址
+	popq %rsp // 设置rsp指向返回地址上面
+	pushq %rax // 压入返回地址
 	
-	xorl %eax, %eax // 地址对齐
-	ret // 函数返回
+	xorl %eax, %eax // 清零eax
+	ret // 从此函数中返回
 #endif
